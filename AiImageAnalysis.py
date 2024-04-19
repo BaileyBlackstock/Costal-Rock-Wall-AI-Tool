@@ -55,6 +55,64 @@ def find_longest_lines(contours) -> list[tuple]:
     
     return longest_lines
 
+def get_line_intersect(line1: tuple, line2: tuple):
+    dx = (line1[0][0] - line1[1][0], line2[0][0] - line2[1][0])
+    dy = (line1[0][1] - line1[1][1], line2[0][1] - line2[1][1])
+
+    def det(a, b):
+        return a[0] * b[1] - a[1] * b[0]
+
+    div = det(dx, dy)
+    if div == 0:
+        return None
+
+    d = (det(*line1), det(*line2))
+    x = det(d, dx) / div
+    y = det(d, dy) / div
+
+    x_limits1 = (min(line1[0][0], line1[1][0]), max(line1[0][0], line1[1][0]))
+    y_limits1 = (min(line1[0][1], line1[1][1]), max(line1[0][1], line1[1][1]))
+
+    x_limits2 = (min(line2[0][0], line2[1][0]), max(line2[0][0], line2[1][0]))
+    y_limtit2 = (min(line2[0][1], line2[1][1]), max(line2[0][1], line2[1][1]))
+
+    if (x_limits1[0] <= x <= x_limits1[1] and y_limits1[0] <= y <= y_limits1[1]
+    and x_limits2[0] <= x <= x_limits2[1] and y_limtit2[0] <= y <= y_limtit2[1]):
+        return (x, y)
+    else:
+        return None
+
+def find_perp_lines(contours, longest_lines) -> list[tuple]:
+    perp_lines = []
+
+    for contour, line in zip(contours, longest_lines):
+        hull = cv2.convexHull(contour)
+
+        mid_x = (line[0][0] + line[1][0]) // 2
+        mid_y = (line[0][1] + line[1][1]) // 2
+
+        dx = line[0][0] - mid_x
+        dy = line[0][1] - mid_y
+        temp = dx
+        dx = -dy
+        dy = temp
+
+        perp_line = ((mid_x - dx, mid_y - dy), (mid_x + dx, mid_y + dy))
+        temp_line = []
+
+        for i in range(len(hull)):
+            hull_line = (hull[i][0], hull[(i + 1) % len(hull)][0])
+            intersection = get_line_intersect(perp_line, hull_line)
+
+            if intersection != None:
+                temp_line.append((int(intersection[0]), int(intersection[1])))
+                if len(temp_line) == 2:
+                    break
+
+        perp_lines.append(((temp_line[0]), (temp_line[1])))
+
+    return perp_lines
+
 def read_image_directory(directory_path):
     """
     Reads a directory containing image files, displays each image, and returns a list of image paths.
