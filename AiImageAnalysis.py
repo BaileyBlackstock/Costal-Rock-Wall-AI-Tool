@@ -88,7 +88,8 @@ def identify_reference_item(image_path):
 
 def measureObject(depth, pixelSizes, imgSize, fov):
     """
-    this function converts the width and length in pixels of the objects into real world measurements
+    This function converts the width and length in pixels of the objects into real world measurements,
+    the unit of measurement is given by the unit of the depth (i.e. if the depth is in mm so is the sizes) 
 
     :param depth: an integer of the depth of the image
     :param pixelSizes: a list of the width and length of the rocks in pixels
