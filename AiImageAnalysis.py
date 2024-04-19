@@ -31,7 +31,12 @@ def find_contours(image: cv2.typing.MatLike):
     grey = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     edges = cv2.Canny(grey, 100, 200)
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    return contours
+
+    """ 
+    Filters contours, removing those with a length to short to be a rock border.
+    May need to adjust arclength value based on testing (the "> 50" is what im referencing)
+    """
+    return [contour for contour in contours if cv2.arcLength(contour, True) > 50]
 
 def find_longest_lines(contours) -> list[tuple]:
     longest_lines = []
