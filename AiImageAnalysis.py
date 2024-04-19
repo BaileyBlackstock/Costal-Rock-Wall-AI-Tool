@@ -16,7 +16,7 @@ def get_real_length(rock_line: tuple, hat_line: tuple, hat_diameter: float) -> f
     hat_mag = np.linalg.norm(np.array(hat_line[0]) - np.array(hat_line[1]))
     return rock_mag * (hat_mag / hat_diameter)
 
-def segment_images(image: cv2.typing.MatLike, ranges: dict):
+def get_segmented_images(image: cv2.typing.MatLike, colour_ranges: dict):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
     segmented_images = {}
@@ -33,7 +33,7 @@ def find_contours(image: cv2.typing.MatLike):
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     """ 
-    Filters contours, removing those with a length to short too be a rock border.
+    Filters contours, removing those with a length to0 short to be a rock border.
     May need to adjust arclength value based on testing (the "> 50" is what im referencing)
     """
     return [contour for contour in contours if cv2.arcLength(contour, True) > 50]
