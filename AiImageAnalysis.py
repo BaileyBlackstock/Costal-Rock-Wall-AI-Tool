@@ -10,6 +10,12 @@ colour_ranges = {
     'white': (np.array([0, 0, 200]), np.array([255, 30, 255]))
 }
 
+#this is a dummy function, im not sure it works, I haven't tested it
+def get_real_length(rock_line: tuple, hat_line: tuple, hat_diameter: float) -> float:
+    rock_mag = np.linalg.norm(np.array(rock_line[0]) - np.array(rock_line[1]))
+    hat_mag = np.linalg.norm(np.array(hat_line[0]) - np.array(hat_line[1]))
+    return rock_mag * (hat_mag / hat_diameter)
+
 def segment_images(image: cv2.typing.MatLike, ranges: dict):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
