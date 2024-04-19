@@ -86,6 +86,26 @@ def identify_reference_item(image_path):
     
     return loc  # An array containing a x and y positions of a pixel in the hard hat.
 
+def measureObject(depth, pixelSizes, imgSize, fov):
+    """
+    this function converts the width and length in pixels of the objects into real world measurements
+
+    :param depth: an integer of the depth of the image
+    :param pixelSizes: a list of the width and length of the rocks in pixels
+    :param imgSize: the pixel size of the image
+    :param fov: the fov of the taken image
+    :return: a list of sizes of the rock in real world measurements
+    """
+    sizes = []
+
+    for x in range(len(pixelSizes)):
+        size = []
+        for v in range(2):
+            size.append(2 * depth * math.tan(fov * (pixelSizes[x][v]/imgSize[v]) / 2))
+        sizes.append(size)
+
+    return sizes
+
 def main():
     directory_path = "AI Image Analysis Data"  # Update this path
     output_file_suffix = "_output.csv"  # Update this path as needed
