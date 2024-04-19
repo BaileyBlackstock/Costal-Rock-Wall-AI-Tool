@@ -1,6 +1,7 @@
 import os
 import cv2
 import csv
+import numpy as np
 
 colour_ranges = {
     'red': (np.array([0, 70, 50]), np.array([10, 255, 255])),
