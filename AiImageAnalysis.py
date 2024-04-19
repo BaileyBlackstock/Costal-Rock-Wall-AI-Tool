@@ -6,7 +6,8 @@ colour_ranges = {
     'red': (np.array([0, 70, 50]), np.array([10, 255, 255])),
     'yellow': (np.array([20, 70, 50]), np.array([30, 255, 255])),
     'blue': (np.array([100, 70, 50]), np.array([130, 255, 255])),
-    'green': (np.array([50, 70, 50]), np.array([70, 255, 255]))
+    'green': (np.array([50, 70, 50]), np.array([70, 255, 255])),
+    'white': (np.array([0, 0, 200]), np.array([255, 30, 255]))
 }
 
 def segment_images(image: cv2.typing.MatLike, ranges: dict):
