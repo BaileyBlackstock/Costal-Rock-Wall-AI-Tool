@@ -2,6 +2,51 @@ import os
 import cv2
 import csv
 
+colour_ranges = {
+    'red': (np.array([0, 70, 50]), np.array([10, 255, 255])),
+    'yellow': (np.array([20, 70, 50]), np.array([30, 255, 255])),
+    'blue': (np.array([100, 70, 50]), np.array([130, 255, 255])),
+    'green': (np.array([50, 70, 50]), np.array([70, 255, 255]))
+}
+
+def segment_images(image: cv2.typing.MatLike, ranges: dict):
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    segmented_images = {}
+    for colour, (lower, upper) in ranges.items():
+        mask = cv2.inRange(hsv, lower, upper)
+        segmented_image = cv2.bitwise_and(image, image, mask=mask)
+        segmented_images[colour] = segmented_image
+    
+    return segmented_images
+
+def find_contours(image: cv2.typing.MatLike):
+    grey = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    edges = cv2.Canny(grey, 100, 200)
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    return contours
+
+def find_longest_lines(contours) -> list[tuple]:
+    longest_lines = []
+    for contour in contours:
+        hull = cv2.convexHull(contour, returnPoints=False)
+
+        longest_line_length = 0
+        longest_line = None
+
+        for i in range(len(hull)):
+            for j in range(i+1, len(hull)):
+                p1 = tuple(contour[hull[i][0]][0]) 
+                p2 = tuple(contour[hull[j][0]][0])
+
+                length = np.linalg.norm(np.array(p1) - np.array(p2))
+                if length > longest_line_length:
+                    longest_line_length = length
+                    longest_line = (p1, p2)
+
+        longest_lines.append(longest_line)
+    
+    return longest_lines
 
 def read_image_directory(directory_path):
     """
