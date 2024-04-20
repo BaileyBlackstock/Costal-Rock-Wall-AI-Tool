@@ -2,6 +2,7 @@ import os
 import cv2
 import csv
 import numpy as np
+import matplotlib.pyplot as plt
 
 colour_ranges = {
     'red': (np.array([0, 70, 50]), np.array([10, 255, 255])),
@@ -10,6 +11,20 @@ colour_ranges = {
     'green': (np.array([50, 70, 50]), np.array([70, 255, 255])),
     'white': (np.array([0, 0, 200]), np.array([255, 30, 255]))
 }
+
+def plot_grading_curve(rock_masses: list):
+    rock_masses_sorted = np.sort(rock_masses)
+    total_mass = np.sum(rock_masses_sorted)
+    cumulative_masses = np.cumsum(rock_masses_sorted)
+    cumulative_percentages = (cumulative_masses / total_mass) * 100
+
+    plt.figure()
+    plt.plot(rock_masses_sorted, cumulative_percentages, marker='o')
+    plt.xlabel('Rock Size (kg)')
+    plt.ylabel('Cumulative Percentage (%)')
+    plt.title('Rock Grading Curve')
+    plt.grid(True)
+    plt.show()
 
 def get_real_length(line1: tuple, line2: tuple, line2_real_length: float) -> float:
     line1_mag = np.linalg.norm(np.array(line1[0]) - np.array(line1[1]))
