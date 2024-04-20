@@ -7,6 +7,12 @@ import math
 
 
 def plot_grading_curve(rock_masses: list, show: bool = False):
+    """
+    Produces a graph cumulative percentage graph of the rock sizes.
+    :param rock_masses: the masses of the rocks in kgs
+    :param show: whether to show the graph or not
+    :return: N/A
+    """
     rock_masses_sorted = np.sort(rock_masses)
     total_mass = np.sum(rock_masses_sorted)
     cumulative_masses = np.cumsum(rock_masses_sorted)
@@ -38,6 +44,13 @@ def imageDepth(referencePixelSize, imgSize, fov):
 
 
 def get_segmented_images(image, segmented_image, centers):
+    """
+    returns a list of images containing only a single colour of the source image
+    :param image: original image
+    :param segmented_image: the segmented image
+    :param centers: a list of colours in the image
+    :return: a list of images each containing one of the colours
+    """
     # Display the segmented images for each color cluster
     images = []
     for i, color in enumerate(centers):
@@ -48,6 +61,12 @@ def get_segmented_images(image, segmented_image, centers):
 
 
 def segment_colors(image, k):
+    """
+    uses kmeans segmentation to confine the pixels to only a few colours
+    :param image: segmented image
+    :param k: number of different rock colours
+    :return: a list of images each containing only a single image
+    """
     # Reshape the image into a 2D array of pixels
     pixels = image.reshape((-1, 3))
 
@@ -69,6 +88,11 @@ def segment_colors(image, k):
 
 
 def find_contours(image: cv2.typing.MatLike):
+    """
+    returns large (size > 10) contours in the image
+    :param image: an image containing only one colour
+    :return: a list of contours in the image
+    """
     grey = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     edges = cv2.Canny(grey, 100, 200)
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -78,6 +102,11 @@ def find_contours(image: cv2.typing.MatLike):
 
 
 def find_longest_lines(contours) -> list[tuple]:
+    """
+    finds the longest line within each contour
+    :param contours: a list of contours
+    :return: a list of the longest lines
+    """
     longest_lines = []
     for contour in contours:
         hull = cv2.convexHull(contour, returnPoints=False)
@@ -101,6 +130,12 @@ def find_longest_lines(contours) -> list[tuple]:
 
 
 def get_line_intersect(line1: tuple, line2: tuple):
+    """
+    finds if two lines intersects
+    :param line1: the first line
+    :param line2: the second line
+    :return: a bool that states if the lines do or don't intersect
+    """
     dx = (line1[0][0] - line1[1][0], line2[0][0] - line2[1][0])
     dy = (line1[0][1] - line1[1][1], line2[0][1] - line2[1][1])
 
@@ -129,6 +164,12 @@ def get_line_intersect(line1: tuple, line2: tuple):
 
 
 def find_perp_lines(contours, longest_lines) -> list[tuple]:
+    """
+    finds the perpendicular lines of each rock in this list
+    :param contours: a list of contours
+    :param longest_lines: a list of the longest lines in the contours
+    :return: a list of perpendicular lines in the rocks
+    """
     perp_lines = []
 
     for contour, line in zip(contours, longest_lines):
@@ -163,6 +204,12 @@ def find_perp_lines(contours, longest_lines) -> list[tuple]:
 
 
 def get_rocks_pixel_sizes(image, colourCount):
+    """
+    finds the pixel lengths of the rocks in the image
+    :param image: the silhouette image of the rocks
+    :param colourCount: the number of unique rock colours
+    :return: a 2d list of rock pixel sizes
+    """
     # colour segment the image to remove noise
     segmented_image, centers = segment_colors(image, colourCount + 2)
 
@@ -191,12 +238,19 @@ def get_rocks_pixel_sizes(image, colourCount):
 
 
 def resize_image(image: cv2.typing.MatLike, target_width: int):
+    """
+    resize the image
+    :param image: original image
+    :param target_width: new width to adjust to
+    :return: new image of target size
+    """
     aspect_ratio = image.shape[1] / image.shape[0]
     target_height = int(target_width / aspect_ratio)
     return cv2.resize(image, (target_width, target_height))
 
 
 def calculate_masses(dimensions: list, density: float, reduction_factor: float) -> list:
+    # converts dimensions to masses
     return [((width * height * height) * reduction_factor) * density for width, height in dimensions]
 
 
@@ -264,6 +318,7 @@ def dis(line):
     x1, y1 = line[0]
     x2, y2 = line[1]
     return math.sqrt((x2-x1)**2 + (y2-y1)**2)
+    
 
 def main():
     directory_path = "AI Image Analysis Data"  # Update this path
