@@ -3,16 +3,10 @@ import cv2
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 
-colour_ranges = {
-    'red': (np.array([0, 70, 50]), np.array([10, 255, 255])),
-    'yellow': (np.array([20, 70, 50]), np.array([30, 255, 255])),
-    'blue': (np.array([100, 70, 50]), np.array([130, 255, 255])),
-    'green': (np.array([50, 70, 50]), np.array([70, 255, 255])),
-    'white': (np.array([0, 0, 200]), np.array([255, 30, 255]))
-}
 
-def plot_grading_curve(rock_masses: list, show: bool= False):
+def plot_grading_curve(rock_masses: list, show: bool = False):
     rock_masses_sorted = np.sort(rock_masses)
     total_mass = np.sum(rock_masses_sorted)
     cumulative_masses = np.cumsum(rock_masses_sorted)
@@ -27,32 +21,61 @@ def plot_grading_curve(rock_masses: list, show: bool= False):
     if show:
         plt.show()
 
-def get_real_length(line1: tuple, line2: tuple, line2_real_length: float) -> float:
-    line1_mag = np.linalg.norm(np.array(line1[0]) - np.array(line1[1]))
-    line2_mag = np.linalg.norm(np.array(line2[0]) - np.array(line2[1]))
-    return (line1_mag / line2_mag) * line2_real_length
 
-def get_segmented_images(image: cv2.typing.MatLike, colour_ranges: dict):
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+def imageDepth(referencePixelSize, imgSize, fov):
+    """
+    This function finds the depth of the reference object by preforming trigonometry
+    using the pixel sizes and known hardhat diameter of 295mm
 
-    segmented_images = {}
-    for colour, (lower, upper) in ranges.items():
-        mask = cv2.inRange(hsv, lower, upper)
-        segmented_image = cv2.bitwise_and(image, image, mask=mask)
-        segmented_images[colour] = segmented_image
-    
-    return segmented_images
+    :param referencePixelSize: reference object diameter
+    :param imgSize: image size
+    :param fov: fov of camera (~80 degrees for iphone 1x zoom)
+    :return: the depth in mm
+    """
+    HardHatMM = 295/2
+
+    return HardHatMM/math.tan(fov * (referencePixelSize/imgSize[1]) / 2)
+
+
+def get_segmented_images(image, segmented_image, centers):
+    # Display the segmented images for each color cluster
+    images = []
+    for i, color in enumerate(centers):
+        mask = cv2.inRange(segmented_image, color, color)
+        result = cv2.bitwise_and(image, image, mask=mask)
+        images.append((color, result))
+    return images
+
+
+def segment_colors(image, k):
+    # Reshape the image into a 2D array of pixels
+    pixels = image.reshape((-1, 3))
+
+    # Convert to float32
+    pixels = np.float32(pixels)
+
+    # Define criteria and apply k-means clustering
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
+    _, labels, centers = cv2.kmeans(pixels, k, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+
+    # Convert back to uint8 and make original image
+    centers = np.uint8(centers)
+    segmented_image = centers[labels.flatten()]
+
+    # Reshape back to the original image shape
+    segmented_image = segmented_image.reshape(image.shape)
+
+    return segmented_image, centers
+
 
 def find_contours(image: cv2.typing.MatLike):
     grey = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     edges = cv2.Canny(grey, 100, 200)
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    min_contour_area = 10
+    filtered_contours = [cnt for cnt in contours if cv2.contourArea(cnt) > min_contour_area]
+    return filtered_contours
 
-    """ 
-    Filters contours, removing those with a length too short to be a rock border.
-    May need to adjust arclength value based on testing (the "> 50" is what im referencing)
-    """
-    return [contour for contour in contours if cv2.arcLength(contour, True) > 50]
 
 def find_longest_lines(contours) -> list[tuple]:
     longest_lines = []
@@ -63,8 +86,8 @@ def find_longest_lines(contours) -> list[tuple]:
         longest_line = None
 
         for i in range(len(hull)):
-            for j in range(i+1, len(hull)):
-                p1 = tuple(contour[hull[i][0]][0]) 
+            for j in range(i + 1, len(hull)):
+                p1 = tuple(contour[hull[i][0]][0])
                 p2 = tuple(contour[hull[j][0]][0])
 
                 length = np.linalg.norm(np.array(p1) - np.array(p2))
@@ -73,8 +96,9 @@ def find_longest_lines(contours) -> list[tuple]:
                     longest_line = (p1, p2)
 
         longest_lines.append(longest_line)
-    
+
     return longest_lines
+
 
 def get_line_intersect(line1: tuple, line2: tuple):
     dx = (line1[0][0] - line1[1][0], line2[0][0] - line2[1][0])
@@ -98,10 +122,11 @@ def get_line_intersect(line1: tuple, line2: tuple):
     y_limtit2 = (min(line2[0][1], line2[1][1]), max(line2[0][1], line2[1][1]))
 
     if (x_limits1[0] <= x <= x_limits1[1] and y_limits1[0] <= y <= y_limits1[1]
-    and x_limits2[0] <= x <= x_limits2[1] and y_limtit2[0] <= y <= y_limtit2[1]):
+            and x_limits2[0] <= x <= x_limits2[1] and y_limtit2[0] <= y <= y_limtit2[1]):
         return (x, y)
     else:
         return None
+
 
 def find_perp_lines(contours, longest_lines) -> list[tuple]:
     perp_lines = []
@@ -136,13 +161,44 @@ def find_perp_lines(contours, longest_lines) -> list[tuple]:
 
     return perp_lines
 
+
+def get_rocks_pixel_sizes(image, colourCount):
+    # colour segment the image to remove noise
+    segmented_image, centers = segment_colors(image, colourCount + 2)
+
+    # separate into multiple images of each colour
+    segmented = get_segmented_images(image, segmented_image, centers)
+
+    rockSizes = []
+    referenceDiameter = 0
+
+    for colour, segment_image in segmented:
+        if colour[0] < 20 and colour[1] < 20 and colour[2] < 20:
+            continue  # skip the colour black
+
+        contours = find_contours(segment_image)
+        longs = find_longest_lines(contours)
+        perp = find_perp_lines(contours, longs)
+
+        if colour[0] > 235 and colour[1] > 235 and colour[2] > 235:
+            referenceDiameter = dis(longs[0])
+        else:
+            for i in range(len(longs)):
+                newSize = [dis(longs[i]), dis(perp[i])]
+                rockSizes.append(newSize)
+
+    return rockSizes, referenceDiameter
+
+
 def resize_image(image: cv2.typing.MatLike, target_width: int):
     aspect_ratio = image.shape[1] / image.shape[0]
     target_height = int(target_width / aspect_ratio)
     return cv2.resize(image, (target_width, target_height))
 
+
 def calculate_masses(dimensions: list, density: float, reduction_factor: float) -> list:
     return [((width * height * height) * reduction_factor) * density for width, height in dimensions]
+
 
 def read_image_directory(directory_path):
     """
@@ -180,12 +236,13 @@ def output_to_csv(data, output_file_path):
         for row in data:
             writer.writerow(row)
 
-def measureObject(depth, pixelSizes, imgSize, fov):
+
+def get_rock_measurements(depth, pixelSizes, imgSize, fov):
     """
     This function converts the width and length in pixels of the objects into real world measurements,
-    the unit of measurement is given by the unit of the depth (i.e. if the depth is in mm so is the sizes) 
+    the unit of measurement is given in meters
 
-    :param depth: an integer of the depth of the image
+    :param depth: a float of the depth of the image in mm
     :param pixelSizes: a list of the width and length of the rocks in pixels
     :param imgSize: the pixel size of the image
     :param fov: the fov of the taken image
@@ -196,10 +253,17 @@ def measureObject(depth, pixelSizes, imgSize, fov):
     for x in range(len(pixelSizes)):
         size = []
         for v in range(2):
-            size.append(2 * depth * math.tan(fov * (pixelSizes[x][v]/imgSize[v]) / 2))
+            size.append(2 * depth * math.tan(fov * (pixelSizes[x][v] / imgSize[v]) / 2)/1000)
         sizes.append(size)
 
     return sizes
+
+
+def dis(line):
+    # finds and returns the length of a line
+    x1, y1 = line[0]
+    x2, y2 = line[1]
+    return math.sqrt((x2-x1)**2 + (y2-y1)**2)
 
 def main():
     directory_path = "AI Image Analysis Data"  # Update this path
