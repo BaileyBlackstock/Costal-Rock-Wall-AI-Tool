@@ -12,7 +12,7 @@ colour_ranges = {
     'white': (np.array([0, 0, 200]), np.array([255, 30, 255]))
 }
 
-def plot_grading_curve(rock_masses: list):
+def plot_grading_curve(rock_masses: list, show: bool= False):
     rock_masses_sorted = np.sort(rock_masses)
     total_mass = np.sum(rock_masses_sorted)
     cumulative_masses = np.cumsum(rock_masses_sorted)
@@ -24,7 +24,8 @@ def plot_grading_curve(rock_masses: list):
     plt.ylabel('Cumulative Percentage (%)')
     plt.title('Rock Grading Curve')
     plt.grid(True)
-    plt.show()
+    if show:
+        plt.show()
 
 def get_real_length(line1: tuple, line2: tuple, line2_real_length: float) -> float:
     line1_mag = np.linalg.norm(np.array(line1[0]) - np.array(line1[1]))
