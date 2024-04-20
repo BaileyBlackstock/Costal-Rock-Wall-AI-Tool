@@ -136,6 +136,14 @@ def find_perp_lines(contours, longest_lines) -> list[tuple]:
 
     return perp_lines
 
+def resize_image(image: cv2.typing.MatLike, target_width: int):
+    aspect_ratio = image.shape[1] / image.shape[0]
+    target_height = int(target_width / aspect_ratio)
+    return cv2.resize(image, (target_width, target_height))
+
+def calculate_masses(dimensions: list, density: float, reduction_factor: float) -> list:
+    return [((width * height * height) * reduction_factor) * density for width, height in dimensions]
+
 def read_image_directory(directory_path):
     """
     Reads a directory containing image files, displays each image, and returns a list of image paths.
