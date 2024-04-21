@@ -348,6 +348,17 @@ def dis(line):
     x1, y1 = line[0]
     x2, y2 = line[1]
     return math.sqrt((x2-x1)**2 + (y2-y1)**2)
+
+
+def get_real_length(rock_size: float, hat_size: float, hat_diameter: float) -> float:
+    """
+    finds the real world length of a rock line given the hat line and real size
+    :param rock_size: pixel length of rock line
+    :param hat_size: pixel length of hat line
+    :param hat_diameter: real length of hat line
+    :return: real length of rock line
+    """
+    return (rock_size / hat_size) * hat_diameter
     
 
 def main():
