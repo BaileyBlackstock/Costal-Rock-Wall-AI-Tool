@@ -182,9 +182,9 @@ def find_perp_lines(contours, longest_lines) -> list[tuple]:
         dy = line[0][1] - mid_y
         temp = dx
         dx = -dy
-        dx = dx * 1 + dx
+        dx = dx * 10 + dx
         dy = temp
-        dy = dy * 1 + dy
+        dy = dy * 10 + dy
 
         perp_line = ((mid_x - dx, mid_y - dy), (mid_x + dx, mid_y + dy))
         temp_line = []
