@@ -125,6 +125,8 @@ def find_longest_lines(contours) -> list[tuple]:
                     longest_line = (p1, p2)
 
         longest_lines.append(longest_line)
+        if __debug__:
+            print(f"found longest line for a hull at: {longest_lines[-1]}")
 
     return longest_lines
 
@@ -189,6 +191,9 @@ def find_perp_lines(contours, longest_lines) -> list[tuple]:
         perp_line = ((mid_x - dx, mid_y - dy), (mid_x + dx, mid_y + dy))
         temp_line = []
 
+        if __debug__:
+            print(f"unadjusted perpendicular line at: {perp_line}")
+
         for i in range(len(hull)):
             hull_line = (hull[i][0], hull[(i + 1) % len(hull)][0])
             intersection = get_line_intersect(perp_line, hull_line)
@@ -197,8 +202,13 @@ def find_perp_lines(contours, longest_lines) -> list[tuple]:
                 temp_line.append((int(intersection[0]), int(intersection[1])))
                 if len(temp_line) == 2:
                     break
-
-        perp_lines.append(((temp_line[0]), (temp_line[1])))
+        
+        if len(temp_line) == 2:
+            perp_lines.append(((temp_line[0]), (temp_line[1])))
+            if __debug__:
+                print(f"found intersections for line, new line is: {perp_lines[-1]}")
+        elif __debug__:
+            print("failed to find intersections for unadjusted line")
 
     return perp_lines
 
@@ -226,6 +236,17 @@ def get_rocks_pixel_sizes(image, colourCount):
         contours = find_contours(segment_image)
         longs = find_longest_lines(contours)
         perp = find_perp_lines(contours, longs)
+
+        if __debug__ and len(longs) == len(perp):
+            for contour in contours:
+                hull = cv2.convexHull(contour)
+                cv2.drawContours(segment_image, [hull], -1, (255,0,0), 2)
+
+            for width, height in zip(longs, perp):
+                cv2.line(segment_image, width[0], width[1], (255,0,0), 2)
+                cv2.line(segment_image, height[0], height[1], (255,0,0), 2)
+                cv2.imshow(f'{colour}', segment_image)
+                cv2.waitKey(0)
 
         if colour[0] > 235 and colour[1] > 235 and colour[2] > 235:
             referenceDiameter = dis(longs[0])
