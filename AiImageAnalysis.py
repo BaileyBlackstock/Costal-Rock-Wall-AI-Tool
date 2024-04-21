@@ -165,10 +165,10 @@ def get_line_intersect(line1: tuple, line2: tuple):
     y_limits1 = (min(line1[0][1], line1[1][1]), max(line1[0][1], line1[1][1]))
 
     x_limits2 = (min(line2[0][0], line2[1][0]), max(line2[0][0], line2[1][0]))
-    y_limtit2 = (min(line2[0][1], line2[1][1]), max(line2[0][1], line2[1][1]))
+    y_limits2 = (min(line2[0][1], line2[1][1]), max(line2[0][1], line2[1][1]))
 
     if (x_limits1[0] <= x <= x_limits1[1] and y_limits1[0] <= y <= y_limits1[1]
-            and x_limits2[0] <= x <= x_limits2[1] and y_limtit2[0] <= y <= y_limtit2[1]):
+            and x_limits2[0] <= x <= x_limits2[1] and y_limits2[0] <= y <= y_limits2[1]):
         return (x, y)
     else:
         return None
