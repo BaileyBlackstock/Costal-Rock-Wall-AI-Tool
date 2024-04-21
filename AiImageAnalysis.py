@@ -13,6 +13,7 @@ def get_error(estimated_value, real_value):
     :return: error (percentage)
     """
     return (abs(real_value - estimated_value) / real_value) * 100
+    
 
 def plot_grading_curve(rock_masses: list, show: bool = False):
     """
