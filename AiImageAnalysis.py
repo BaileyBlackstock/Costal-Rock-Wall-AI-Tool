@@ -134,7 +134,7 @@ def get_line_intersect(line1: tuple, line2: tuple):
     finds if two lines intersects
     :param line1: the first line
     :param line2: the second line
-    :return: a bool that states if the lines do or don't intersect
+    :return: a tuple that is the x and y position of the intersect or none
     """
     dx = (line1[0][0] - line1[1][0], line2[0][0] - line2[1][0])
     dy = (line1[0][1] - line1[1][1], line2[0][1] - line2[1][1])
