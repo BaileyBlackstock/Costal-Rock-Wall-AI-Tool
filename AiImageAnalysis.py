@@ -311,14 +311,15 @@ def read_image_directory(directory_path):
 def output_to_csv(data, output_file_path):
     """
     Outputs data to a CSV file.
-    :param data: List of tuples containing data to write to CSV.
+    :param data: List of tuples containing data to write to CSV. Each tuple should be (image_path, id, length, width, depth, volume)
     :param output_file_path: Path to the output CSV file.
     """
     with open(output_file_path, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["Image", "OperationResult"])
-        for row in data:
-            writer.writerow(row)
+        writer.writerow(["File Name", "Unique_ID", "Length (mm)", "Width (mm)", "Depth (mm)", "Volume (mm³)"])
+        for entry in data:
+            image_path, id, length, width, depth, volume = entry
+            writer.writerow([os.path.basename(image_path), id, length, width, depth, volume])
 
 
 def get_rock_measurements(depth, pixelSizes, imgSize, fov):
