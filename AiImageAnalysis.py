@@ -292,7 +292,7 @@ def read_image_directory(directory_path):
     """
     supported_formats = ('.jpg', '.jpeg', '.png')
     image_paths = [os.path.join(directory_path, f) for f in os.listdir(directory_path) if f.endswith(supported_formats)]
-
+    '''
     # Create a resizable window
     cv2.namedWindow('Image', cv2.WINDOW_NORMAL)
     # Resize the window to a fixed size
@@ -304,7 +304,7 @@ def read_image_directory(directory_path):
         cv2.waitKey(0)  # Wait for any key to be pressed to proceed
 
     cv2.destroyAllWindows()  # Close the image window when done
-
+    '''
     return image_paths
 
 
@@ -314,7 +314,7 @@ def output_to_csv(data, output_file_path):
     :param data: List of tuples containing data to write to CSV. Each tuple should be (image_path, id, length, width, depth, volume)
     :param output_file_path: Path to the output CSV file.
     """
-    with open(output_file_path, mode='w', newline='') as file:
+    with open(output_file_path, mode='w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow(["File Name", "Unique_ID", "Length (mm)", "Width (mm)", "Depth (mm)", "Volume (mm³)"])
         for entry in data:
@@ -363,25 +363,60 @@ def get_real_length(rock_size: float, hat_size: float, hat_diameter: float) -> f
     
 
 def main():
-    directory_path = "AI Image Analysis Data"  # Update this path
-    output_file_suffix = "_output.csv"  # Update this path as needed
+    # Define the parameters for the project
+    image_directory = "AI Image Analysis Data"
+    output_file_suffix = "_output.csv"
+    fov = 80 * math.pi / 180  # Convert field of view to radians
+    target_width = 800  # Resize target width for images
+    density = 2.7  # Density of rocks, assuming granite in g/cm^3
+    reduction_factor = 0.5  # Assuming a simplistic model for rock mass estimation
 
-    image_paths = read_image_directory(directory_path)
-    results = []
-    reference_results = []
+    # Read images from directory
+    image_paths = read_image_directory(image_directory)
+
+    # List to store all measurements data
+    measurements_data = []
+    rock_masses = []  # List to collect rock masses for grading curve
 
     for image_path in image_paths:
-        # Process each image and store the rock analysis result
-        result = identify_rock(image_path)
-        results.append((image_path, result))
-        # Process each image and store the reference result
-        reference_result = identify_reference_item(image_path)
-        reference_results.append((image_path, reference_result))
-        # For each image, output a csv file
-        output_file_path = ''
-        output_file_path = image_path.replace('.jpg','').replace('.png','') + output_file_suffix
-        output_to_csv(results, output_file_path)
-        print(f"Analysis complete. Results saved to {output_file_path}")
+        # Load and resize image
+        image = cv2.imread(image_path)
+        resized_image = resize_image(image, target_width)
+
+        # Get the contours, sizes of rocks in pixels, and hat diameter
+        pixel_sizes, hat_diameter = get_rocks_pixel_sizes(resized_image, 3)  # Assume 4 different rock colors
+
+        # If no valid hat_diameter is found, continue to next image or use a fallback value
+        if hat_diameter == 0:
+            print(f"Error: No valid reference object found in {image_path}. This image will be skipped.")
+            continue
+
+        # Estimate depth
+        depth = imageDepth(hat_diameter, resized_image.shape, fov)
+
+        # Convert pixel sizes to real-world measurements
+        real_sizes = get_rock_measurements(depth, pixel_sizes, resized_image.shape, fov)
+
+        # Calculate rock masses based on their dimensions
+        masses = calculate_masses(real_sizes, density, reduction_factor)
+        rock_masses.extend(masses)  # Collect all rock masses for grading curve
+
+        # Generate data for CSV output
+        for i, dimensions in enumerate(real_sizes):
+            length, width = dimensions
+            mass = masses[i]
+            measurements_data.append(
+                (image_path, i, length * 1000, width * 1000, depth, mass))  # converting meters to mm
+
+        output_file_path = image_path.replace('.jpg', '').replace('.png', '') + output_file_suffix
+
+        # Output the data to a CSV file
+        output_to_csv(measurements_data, output_file_path)
+
+        # Plot the grading curve using the collected rock masses
+        plot_grading_curve(rock_masses, show=True)
+
+        print("Data processing complete. Results saved to:", output_file_path)
 
 
 if __name__ == "__main__":
