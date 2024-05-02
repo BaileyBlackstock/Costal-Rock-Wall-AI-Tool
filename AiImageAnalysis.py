@@ -84,7 +84,7 @@ def segment_colors(image, k):
 
     # Define criteria and apply k-means clustering
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
-    _, labels, centers = cv2.kmeans(pixels, k, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+    _, labels, centers = cv2.kmeans(pixels, k, None, criteria, 1, cv2.KMEANS_RANDOM_CENTERS)
 
     # Convert back to uint8 and make original image
     centers = np.uint8(centers)
