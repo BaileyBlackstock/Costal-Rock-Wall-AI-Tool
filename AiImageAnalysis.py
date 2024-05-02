@@ -461,7 +461,11 @@ def main():
             measurements_data.append(
                 (image_path, i, length * 1000, width * 1000, depth, mass))  # converting meters to mm
 
-        output_file_path = image_path.replace('.jpg', '').replace('.png', '') + output_file_suffix
+        # Extract the base name without the extension
+        base_name = os.path.splitext(image_path)[0]
+
+        # Append the output file suffix
+        output_file_path = base_name + output_file_suffix
 
         # Output the data to a CSV file
         output_to_csv(measurements_data, output_file_path)
