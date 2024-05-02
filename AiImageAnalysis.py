@@ -283,6 +283,10 @@ def calculate_masses(dimensions: list, density: float, reduction_factor: float) 
     # converts dimensions to masses
     return [((width * height * height) * reduction_factor) * density for width, height in dimensions]
 
+def calculate_volumes(dimensions: list, reduction_factor: float) -> list:
+    # converts dimensions to only volumes when density is not available
+    return [((width * height * height) * reduction_factor) for width, height in dimensions]
+
 def count_large_color_areas(image, area_threshold):
     """
     Count the number of large areas with specified colors in the image.
@@ -366,10 +370,10 @@ def output_to_csv(data, output_file_path):
     """
     with open(output_file_path, mode='w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
-        writer.writerow(["File Name", "Unique_ID", "Length (mm)", "Width (mm)", "Depth (mm)", "Volume (mm^3)"])
+        writer.writerow(["File Name", "Unique_ID", "Width (mm)", "Height (mm)", "Volume (mm^3)"])
         for entry in data:
-            image_path, id, length, width, depth, volume = entry
-            writer.writerow([os.path.basename(image_path), id, length, width, depth, volume])
+            image_path, id, width, Height, volume = entry
+            writer.writerow([os.path.basename(image_path), id, width, Height, volume])
 
 
 def get_rock_measurements(depth, pixelSizes, imgSize, fov):
@@ -418,8 +422,7 @@ def main():
     output_file_suffix = "_output.csv"
     fov = 80 * math.pi / 180  # Convert field of view to radians
     target_width = 800  # Resize target width for images
-    density = 2.7  # Density of rocks, assuming granite in g/cm^3
-    reduction_factor = 0.5  # Assuming a simplistic model for rock mass estimation
+    reduction_factor = 0.9  # Assuming a simplistic model for rock mass estimation
     area_threshold = 500 # Minimum area threshold for considering an area as large
 
     # Read images from directory
@@ -430,6 +433,14 @@ def main():
     rock_masses = []  # List to collect rock masses for grading curve
 
     for image_path in image_paths:
+        # Prompt user to input density
+        '''
+        print('Please enter the density, or there will be only volumes.')
+        density = input('density: ')  # Density of rocks, assuming granite in kg/m^3
+        '''
+        # Suppose no density is input
+        density = ''
+
         # Load and resize image
         image = cv2.imread(image_path)
         resized_image = resize_image(image, target_width)
@@ -450,16 +461,22 @@ def main():
         # Convert pixel sizes to real-world measurements
         real_sizes = get_rock_measurements(depth, pixel_sizes, resized_image.shape, fov)
 
-        # Calculate rock masses based on their dimensions
-        masses = calculate_masses(real_sizes, density, reduction_factor)
+        if density == '':
+            # Calculate rock volumes based on their dimensions if there is no density
+            masses = calculate_volumes(real_sizes, reduction_factor)
+        else:
+            density = int(density)
+            # Calculate rock masses based on their dimensions
+            masses = calculate_masses(real_sizes, density, reduction_factor)
+
         rock_masses.extend(masses)  # Collect all rock masses for grading curve
 
         # Generate data for CSV output
         for i, dimensions in enumerate(real_sizes):
-            length, width = dimensions
+            width, Height = dimensions
             mass = masses[i]
             measurements_data.append(
-                (image_path, i, length * 1000, width * 1000, depth, mass))  # converting meters to mm
+                (image_path, i, width * 1000, Height * 1000, mass))  # converting meters to mm
 
         # Extract the base name without the extension
         base_name = os.path.splitext(image_path)[0]
