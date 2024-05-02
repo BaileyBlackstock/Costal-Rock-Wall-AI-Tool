@@ -283,6 +283,56 @@ def calculate_masses(dimensions: list, density: float, reduction_factor: float) 
     # converts dimensions to masses
     return [((width * height * height) * reduction_factor) * density for width, height in dimensions]
 
+def count_large_color_areas(image, area_threshold):
+    """
+    Count the number of large areas with specified colors in the image.
+
+    Args:
+        image (numpy.ndarray): Input image.
+        area_threshold (int): Minimum area threshold for considering an area as large.
+
+    Returns:
+        int: Number of large areas detected for each color.
+    """
+    colour_rgb = {
+        'red': [[212, 0, 0], [254, 0, 0]],
+        'yellow': [255, 255, 0],
+        'blue': [0, 255, 255],
+        'green': [0, 255, 1],
+        'purple': [255, 0, 254],
+    }
+
+    # Convert image to RGB format
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # Initialize a set to store unique colors with large areas
+    unique_colors_with_large_areas = set()
+
+    # Iterate over each color
+    for color, color_range in colour_rgb.items():
+        # Convert color range to numpy array
+        if isinstance(color_range[0], list):
+            color_ranges = [np.array(lower, dtype=np.uint8) for lower in color_range]
+            lowerb = color_ranges[0]
+            upperb = color_ranges[1]
+        else:
+            lowerb = np.array(color_range, dtype=np.uint8)
+            upperb = np.array(color_range, dtype=np.uint8)
+
+        # Mask areas with the specified color
+        mask = cv2.inRange(image_rgb, lowerb, upperb)
+
+        # Find contours in the mask
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Filter contours based on area
+        large_contours = [cnt for cnt in contours if cv2.contourArea(cnt) > area_threshold]
+
+        # Check if large areas exist for this color
+        if len(large_contours) > 0:
+            unique_colors_with_large_areas.add(color)
+
+    return len(unique_colors_with_large_areas)
 
 def read_image_directory(directory_path):
     """
@@ -316,7 +366,7 @@ def output_to_csv(data, output_file_path):
     """
     with open(output_file_path, mode='w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
-        writer.writerow(["File Name", "Unique_ID", "Length (mm)", "Width (mm)", "Depth (mm)", "Volume (mm³)"])
+        writer.writerow(["File Name", "Unique_ID", "Length (mm)", "Width (mm)", "Depth (mm)", "Volume (mm^3)"])
         for entry in data:
             image_path, id, length, width, depth, volume = entry
             writer.writerow([os.path.basename(image_path), id, length, width, depth, volume])
@@ -370,6 +420,7 @@ def main():
     target_width = 800  # Resize target width for images
     density = 2.7  # Density of rocks, assuming granite in g/cm^3
     reduction_factor = 0.5  # Assuming a simplistic model for rock mass estimation
+    area_threshold = 500 # Minimum area threshold for considering an area as large
 
     # Read images from directory
     image_paths = read_image_directory(image_directory)
@@ -383,8 +434,10 @@ def main():
         image = cv2.imread(image_path)
         resized_image = resize_image(image, target_width)
 
+        rock_colors_number = count_large_color_areas(resized_image, area_threshold)
+
         # Get the contours, sizes of rocks in pixels, and hat diameter
-        pixel_sizes, hat_diameter = get_rocks_pixel_sizes(resized_image, 3)  # Assume 4 different rock colors
+        pixel_sizes, hat_diameter = get_rocks_pixel_sizes(resized_image, rock_colors_number)
 
         # If no valid hat_diameter is found, continue to next image or use a fallback value
         if hat_diameter == 0:
