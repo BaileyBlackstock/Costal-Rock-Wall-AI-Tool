@@ -1,0 +1,3 @@
+density: 2700
+rounding_factor: 0.84
+rocks_per_images: 4 3 4
