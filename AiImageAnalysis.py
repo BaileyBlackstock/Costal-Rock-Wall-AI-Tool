@@ -4,6 +4,17 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 import math
+from PIL import Image
+import pandas as pd
+
+REAL_HAT_DIAMETER=295
+colour_rgb = {
+    'red': [[212,0,0],[254,0,0]],
+    'yellow': [255, 255, 0],
+    'blue': [0, 255, 255], 
+    'green': [0, 255, 1],
+    'purple': [255,0,254],
+}
 
 def get_error(estimated_value, real_value):
     """
@@ -222,49 +233,96 @@ def find_perp_lines(contours, longest_lines) -> list[tuple]:
     return perp_lines
 
 
-def get_rocks_pixel_sizes(image, colourCount):
+def get_rocks_pixel_sizes(image_path, color_count):
     """
-    finds the pixel lengths of the rocks in the image
-    :param image: the silhouette image of the rocks
-    :param colourCount: the number of unique rock colours
-    :return: a 2d list of rock pixel sizes
-    """
-    # colour segment the image to remove noise
-    segmented_image, centers = segment_colors(image, colourCount + 2)
+    Analyzes an image to segment rocks based on color and measure their sizes. 
+    Labels each rock with a unique number from left to right, top to bottom.
 
-    # separate into multiple images of each colour
+    Args:
+        image_path (str): The file path to the image to process.
+        color_count (int): The number of color clusters to use for k-means segmentation.
+
+    Returns:
+        tuple: A tuple containing two elements:
+               - A list of rock sizes and id, where each size is a list containing the width and height in pixels and id.
+               - The diameter of a reference object in pixels if found.
+               If the image cannot be loaded, returns a string indicating the error.
+    """
+    image = cv2.imread(image_path)
+    if image is None:
+        return "Image not found"
+    id_mapping = {'RockSilhouetteBlack1.jpg': {'area':'Area1', 'real_id': ['J','G','A','F','E','B','C','D']},
+            'RockSilhouetteBlack2.jpg': {'area':'Area1', 'real_id': ['J','G','A','F','B']},
+            'RockSilhouetteBlack3.jpg': {'area':'Area2','real_id': ['M','J','I','A','G','F','B']},
+            'RockSilhouetteBlack4.jpg': {'area':'Area2','real_id': ['M','L','A','G','B']},
+            'RockSilhouetteBlack5.jpg': {'area':'Area2','real_id': ['M','J','I','A','G','B']}
+            }
+
+    original_image = image.copy()
+    segmented_image, centers = segment_colors(image, color_count + 2)
     segmented = get_segmented_images(image, segmented_image, centers)
 
-    rockSizes = []
-    referenceDiameter = 0
+    rocks_with_positions = []
+    rock_sizes_id=[]
+    reference_diameter = 0
+    base_filename = os.path.basename(image_path)
+    folder_name = 'label'
+    
+    if not os.path.exists(folder_name):
+        os.makedirs(folder_name)
 
-    for colour, segment_image in segmented:
-        if colour[0] < 20 and colour[1] < 20 and colour[2] < 20:
-            continue  # skip the colour black
+    # Process each segmented image to find contours and measure rocks.
+    for color, segment_image in segmented:
+        if np.all(color < 20):  # Skip dark colors.
+            continue
 
         contours = find_contours(segment_image)
-        longs = find_longest_lines(contours)
-        perp = find_perp_lines(contours, longs)
+        longest_lines = find_longest_lines(contours)
+        perpendicular_lines = find_perp_lines(contours, longest_lines)
 
-        if __debug__ and len(longs) == len(perp):
-            for contour in contours:
-                hull = cv2.convexHull(contour)
-                cv2.drawContours(segment_image, [hull], -1, (255,0,0), 2)
+        for line, contour, width, height in zip(longest_lines, contours, longest_lines, perpendicular_lines):
+            min_x = min(line[0][0], line[1][0])  # Get the minimum x value from the longest line
+            diameter_length = min(dis(width),dis(height))
 
-            for width, height in zip(longs, perp):
-                cv2.line(segment_image, width[0], width[1], (255,0,0), 2)
-                cv2.line(segment_image, height[0], height[1], (255,0,0), 2)
-                cv2.imshow(f'{colour}', segment_image)
-                cv2.waitKey(0)
+            if diameter_length<100:
+                continue  # Skip smaller rocks.
+            if np.all(color > 235):  # Use a specific color to set reference diameter.
+                reference_diameter = dis(width)
+                # Draw reference object diameter.
+                cv2.line(image, width[0], width[1], (255,0,254), 4)
+            else:
+                rocks_with_positions.append((min_x, width, height, contour, color))
+    # Sort rocks by their leftmost x-coordinate from the longest line.
+    rocks_with_positions.sort()
 
-        if colour[0] > 235 and colour[1] > 235 and colour[2] > 235:
-            referenceDiameter = dis(longs[0])
+    # Re-label rocks based on sorted order
+    rock_count = 0
+    for min_x, width, height, contour, color in rocks_with_positions:
+        # Check if the image has mapping in id_mapping
+        image_filename = os.path.basename(image_path)
+        if image_filename in id_mapping:
+            real_ids = id_mapping[image_filename]['real_id']
+            # Check if rock_count is within the range of real_ids
+            if rock_count < len(real_ids):
+                # Use real_id for labeling
+                rock_id = real_ids[rock_count]
+            else:
+                # Continue using original rock_count if there's no corresponding real_id
+                rock_id = str(rock_count)
         else:
-            for i in range(len(longs)):
-                newSize = [dis(longs[i]), dis(perp[i])]
-                rockSizes.append(newSize)
+            # Continue using original rock_count if the image doesn't have mapping in id_mapping
+            rock_id = str(rock_count)
 
-    return rockSizes, referenceDiameter
+        rock_sizes_id.append([dis(width), dis(height), rock_id])
+        intersection_point = get_intersection_point(width, height)
+        rock_number_position = (int(intersection_point[0]), int(intersection_point[1]))
+        cv2.line(original_image, width[0], width[1], (255,255,255), 2)
+        cv2.line(original_image, height[0], height[1], (255,255,255), 2)
+        cv2.putText(original_image, rock_id, rock_number_position, cv2.FONT_HERSHEY_SIMPLEX, 5, (255, 255, 255), 10)
+        rock_count += 1
+
+    cv2.imwrite(f'{folder_name}/numbered_{base_filename}', original_image)
+    return rock_sizes_id, reference_diameter
 
 
 def resize_image(image: cv2.typing.MatLike, target_width: int):
@@ -338,6 +396,21 @@ def count_large_color_areas(image, area_threshold):
 
     return len(unique_colors_with_large_areas)
 
+def resize_image(image: cv2.typing.MatLike, target_width: int):
+    """
+    resize the image
+    :param image: original image
+    :param target_width: new width to adjust to
+    :return: new image of target size
+    """
+    aspect_ratio = image.shape[1] / image.shape[0]
+    target_height = int(target_width / aspect_ratio)
+    return cv2.resize(image, (target_width, target_height))
+
+def calculate_masses(dimensions: list, density: float, reduction_factor: float) -> list:
+    # converts dimensions to masses
+    return [((width * height * height) * reduction_factor) * density for width, height in dimensions]
+
 def read_image_directory(directory_path):
     """
     Reads a directory containing image files, displays each image, and returns a list of image paths.
@@ -361,6 +434,49 @@ def read_image_directory(directory_path):
     '''
     return image_paths
 
+def crop_edges(image_path, output_path, crop_amount):
+    """
+    Crop the edges of an image by the specified amount.
+
+    Args:
+        image_path (str): Path to the input image file.
+        output_path (str): Path to save the output cropped image.
+        crop_amount (int): Amount to crop from each edge.
+    """
+    image = Image.open(image_path)
+    width, height = image.size
+
+    # Calculate the crop box dimensions
+    left = crop_amount
+    top = crop_amount
+    right = width - crop_amount
+    bottom = height - crop_amount
+
+    # Crop the image
+    cropped_image = image.crop((left, top, right, bottom))
+
+    # Save the cropped image
+    cropped_image.save(output_path)
+
+def batch_crop_images(input_folder, output_folder, crop_amount):
+    """
+    Batch crop all images in a folder by the specified amount.
+
+    Args:
+        input_folder (str): Path to the input folder containing images.
+        output_folder (str): Path to save the output cropped images.
+        crop_amount (int): Amount to crop from each edge.
+    """
+    # Create output folder if it doesn't exist
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    # Iterate over each image file in the input folder
+    for filename in os.listdir(input_folder):
+        if filename.endswith(('.jpg', '.jpeg', '.png', '.bmp')):
+            input_path = os.path.join(input_folder, filename)
+            output_path = os.path.join(output_folder, filename)
+            crop_edges(input_path, output_path, crop_amount)
 
 def output_to_csv(data, output_file_path):
     """
@@ -368,12 +484,21 @@ def output_to_csv(data, output_file_path):
     :param data: List of tuples containing data to write to CSV. Each tuple should be (image_path, id, length, width, depth, volume)
     :param output_file_path: Path to the output CSV file.
     """
-    with open(output_file_path, mode='w', newline='', encoding='utf-8') as file:
+    with open(output_file_path, mode='w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(["File Name", "Unique_ID", "Width (mm)", "Height (mm)", "Volume (mm^3)"])
+        writer.writerow(["File Name", "Unique_ID", "Length (mm)", "Width (mm)", "Depth (mm)", "Volume (m3)"])
+                     
         for entry in data:
-            image_path, id, width, Height, volume = entry
-            writer.writerow([os.path.basename(image_path), id, width, Height, volume])
+            image_path, id, length, width, depth, volume ,_,_,_,_,_,_,_,_= entry
+            writer.writerow([os.path.basename(image_path), id, length, width, depth, volume])
+        writer.writerow(["File Name","","Mean Length (mm)", "Mean Width (mm)", "Mean Depth (mm)", "Mean Volume (m3)"
+                     ])
+        image_path,_,_,_,_,_,mean_length, mean_width, mean_width, mean_volume,median_length, median_width, median_width, median_volume=data[0]
+
+        writer.writerow([os.path.basename(image_path),"",mean_length, mean_width, mean_width, mean_volume])
+     
+        writer.writerow(["File Name","","Median Length (mm)", "Median Width (mm)", "Median Depth (mm)", "Median Volume (m3)"])
+        writer.writerow([os.path.basename(image_path),"",median_length, median_width, median_width, median_volume])
 
 
 def get_rock_measurements(depth, pixelSizes, imgSize, fov):
@@ -405,16 +530,126 @@ def dis(line):
     return math.sqrt((x2-x1)**2 + (y2-y1)**2)
 
 
-def get_real_length(rock_size: float, hat_size: float, hat_diameter: float) -> float:
+def get_real_length(rock_size_id: list, hat_pixel_diameter: float, hat_real_diameter: float) -> tuple:
     """
-    finds the real world length of a rock line given the hat line and real size
-    :param rock_size: pixel length of rock line
-    :param hat_size: pixel length of hat line
-    :param hat_diameter: real length of hat line
-    :return: real length of rock line
+    Finds the real world dimensions of a rock given the pixel dimensions and the reference object's real size.
+    :param rock_size: Tuple containing the pixel lengths of the rock's longest and perpendicular diameters.
+    :param hat_pixel_diameter: Pixel diameter of the reference object (safety helmet).
+    :param hat_real_diameter: Real world diameter of the reference object.
+    :return: Tuple containing the real world lengths of the rock's longest and perpendicular diameters.
     """
-    return (rock_size / hat_size) * hat_diameter
+    real_long = (rock_size_id[0] / hat_pixel_diameter) * hat_real_diameter
+    real_perp = (real_long / rock_size_id[0]) * rock_size_id[1]   
+    return (real_long, real_perp, rock_size_id[2])
+
+def count_large_color_areas(image, colour_rgb, area_threshold):
+    """
+    Count the number of large areas with specified colors in the image.
+
+    Args:
+        image (numpy.ndarray): Input image.
+        colour_rgb (dict): Dictionary containing color names and their corresponding RGB values.
+        area_threshold (int): Minimum area threshold for considering an area as large.
+
+    Returns:
+        int: Number of large areas detected for each color.
+    """
+    # Convert image to RGB format
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # Initialize a set to store unique colors with large areas
+    unique_colors_with_large_areas = set()
+
+    # Iterate over each color
+    for color, color_range in colour_rgb.items():
+        # Convert color range to numpy array
+        if isinstance(color_range[0], list):
+            color_ranges = [np.array(lower, dtype=np.uint8) for lower in color_range]
+            lowerb = color_ranges[0]
+            upperb = color_ranges[1]
+        else:
+            lowerb = np.array(color_range, dtype=np.uint8)
+            upperb = np.array(color_range, dtype=np.uint8)
+
+        # Mask areas with the specified color
+        mask = cv2.inRange(image_rgb, lowerb, upperb)
+
+        # Find contours in the mask
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Filter contours based on area
+        large_contours = [cnt for cnt in contours if cv2.contourArea(cnt) > area_threshold]
+
+        # Check if large areas exist for this color
+        if len(large_contours) > 0:
+            unique_colors_with_large_areas.add(color)
+
+    return len(unique_colors_with_large_areas)
+
+def detect_large_color_areas(image_path, colour_rgb, area_threshold):
+    """
+    Detect large areas with specified colors in the image.
+
+    Args:
+        image_path (str): Path to the input image file.
+        colour_rgb (dict): Dictionary containing color names and their corresponding RGB values.
+        area_threshold (int): Minimum area threshold for considering an area as large.
+
+    Returns:
+        int: Number of large areas detected for each color.
+    """
+    # Read the image
+    image = cv2.imread(image_path)
+
+    # Count the number of large color areas
+    large_color_area_counts = count_large_color_areas(image, colour_rgb, area_threshold)
+
+    return large_color_area_counts
+
+
+def detect_large_color_areas(image_path, colour_rgb, area_threshold):
+    """
+    Detect large areas with specified colors in the image.
+
+    Args:
+        image_path (str): Path to the input image file.
+        colour_rgb (dict): Dictionary containing color names and their corresponding RGB values.
+        area_threshold (int): Minimum area threshold for considering an area as large.
+
+    Returns:
+        int: Number of large areas detected for each color.
+    """
+    # Read the image
+    image = cv2.imread(image_path)
+
+    # Count the number of large color areas
+    large_color_area_counts = count_large_color_areas(image, colour_rgb, area_threshold)
+
+    return large_color_area_counts
+
+def calculate_volume(rock_sizes, reduction_factor=0.05):
+    """
+    Calculates the approximate volumes of rocks given their measured dimensions and
+    applies a reduction factor to account for irregular shapes.
+
+    :param rock_sizes: List of tuples, each containing the real world longest and perpendicular diameters of a rock.
+    :param reduction_factor: Percentage to reduce from the calculated volume to account for irregularities.
+    :return: List of volumes after applying the reduction factor.
+    """
+    volumes = []
+    for (long_diameter, perp_diameter) in rock_sizes:
+        # Assume the depth is the same as the perpendicular diameter (smallest of the two measurements)
+        depth = perp_diameter
+        
+        # Calculate the volume of the rock assuming it's roughly a cuboid
+        raw_volume = long_diameter * perp_diameter * depth/1e9
+        
+        # Apply the reduction factor to account for irregular shape
+        adjusted_volume = raw_volume * (1 - reduction_factor)
+        
+        volumes.append(adjusted_volume)
     
+    return volumes
 
 def main():
     # Define the parameters for the project
@@ -440,6 +675,23 @@ def main():
         '''
         # Suppose no density is input
         density = ''
+
+        size_id_result = identify_rock(image_path)  
+        size_result = [[row[0], row[1]] for row in size_id_result]
+        volume_result = calculate_volume(size_result, reduction_factor=0.05) 
+        
+        # Calculate median and mean of length, width, and volume
+        lengths = [row[0] for row in size_id_result]
+        widths = [row[1] for row in size_id_result]
+        volumes = volume_result
+        
+        median_length = np.median(lengths)
+        median_width = np.median(widths)
+        median_volume = np.median(volumes)
+        
+        mean_length = np.mean(lengths)
+        mean_width = np.mean(widths)
+        mean_volume = np.mean(volumes)
 
         # Load and resize image
         image = cv2.imread(image_path)
@@ -472,11 +724,11 @@ def main():
         rock_masses.extend(masses)  # Collect all rock masses for grading curve
 
         # Generate data for CSV output
-        for i, dimensions in enumerate(real_sizes):
-            width, Height = dimensions
-            mass = masses[i]
-            measurements_data.append(
-                (image_path, i, width * 1000, Height * 1000, mass))  # converting meters to mm
+        #for i, dimensions in enumerate(real_sizes):
+            #width, Height = dimensions
+            #mass = masses[i]
+           #measurements_data.append(
+                #(image_path, i, width * 1000, Height * 1000, mass))  # converting meters to mm
 
         # Extract the base name without the extension
         base_name = os.path.splitext(image_path)[0]
