@@ -17,7 +17,7 @@ This program works by taking a silhouette of a rock wall with the rocks and refe
 
 Once this image is created use this program by executing the following steps in order:
 1. Input image/s in the input folder.
-2. Edit the settings.txt file with the correct data.
+2. Edit the settings.txt file with the correct data, the values after "rock_colours_per_images" should be the number of different colours on rocks in each image alphabeticlly.
 3. Run AiImageAnalysis.exe.
 
 The results will then be displayed in a percentage graph and put into a newly created file called outputs.cvs.
