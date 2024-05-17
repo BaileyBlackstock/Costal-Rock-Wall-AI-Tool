@@ -345,12 +345,14 @@ def main():
     # Retrieve settings
     settings = get_settings()
     if settings == -1:
+        stall = input()
         return 1
     density = settings[0]
     reduction_factor = settings[1]
 
     if len(image_paths) != len(settings[2]):
         print("The number of rock colours listed doesn't match the input files count.")
+        stall = input()
         return 1
 
     # List to store all measurements data
