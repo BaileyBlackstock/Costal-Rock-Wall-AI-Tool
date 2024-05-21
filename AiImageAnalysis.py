@@ -5,8 +5,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 
-REAL_HAT_DIAMETER = 295
-
 
 def plot_grading_curve(rock_masses: list, show: bool = False):
     """
@@ -275,12 +273,13 @@ def get_settings():
     f = open("settings.txt", "r")
     line1 = f.readline().split()
     line2 = f.readline().split()
+    line3 = f.readline().split()
 
-    if line1[0] != "density:" or line2[0] != "rounding_factor:":
+    if line1[0] != "density:" or line2[0] != "rounding_factor:" or line3[0] != "reference_size(mm):":
         print("The settings file isn't formatted correctly.")
         return -1
 
-    returnVal = [float(line1[1]), float(line2[1])]
+    returnVal = [float(line1[1]), float(line2[1]), float(line3[1])]
     return returnVal
 
 
@@ -383,6 +382,7 @@ def main():
         return 1
     density = settings[0]
     reduction_factor = settings[1]
+    reference_size = settings[2]
 
     # List to store all measurements data
     measurements_data = []
@@ -396,7 +396,7 @@ def main():
         k = get_cluster_count(image)  # number of rock colours
 
         rockPixelSizes, referenceSize = get_rocks_pixel_sizes(image, k)
-        real_sizes = get_real_length(rockPixelSizes, referenceSize, REAL_HAT_DIAMETER)
+        real_sizes = get_real_length(rockPixelSizes, referenceSize, reference_size)
         masses = calculate_masses(real_sizes, density, reduction_factor)
 
         # Calculate median and mean of length, width, and volume
