@@ -296,7 +296,7 @@ def output_to_csv(data, output_file_path):
         for entry in data:
             image_path, id, length, width, depth, volume, _, _, _, _, _, _, _, _ = entry
             writer.writerow([os.path.basename(image_path), id, length, width, depth, volume])
-        writer.writerow(["", "", "Mean Length (mm)", "Mean Width (mm)", "Mean Depth (mm)", "Mean Mass (m3)"
+        writer.writerow(["", "", "Mean Length (mm)", "Mean Width (mm)", "Mean Depth (mm)", "Mean Mass (kg)"
                          ])
         image_path, _, _, _, _, _, mean_length, mean_width, mean_width, mean_volume, median_length, median_width, median_width, median_volume = \
         data[0]
@@ -304,7 +304,7 @@ def output_to_csv(data, output_file_path):
         writer.writerow(["", "", mean_length, mean_width, mean_width, mean_volume])
 
         writer.writerow(
-            ["", "", "Median Length (mm)", "Median Width (mm)", "Median Depth (mm)", "Median Mass (m3)"])
+            ["", "", "Median Length (mm)", "Median Width (mm)", "Median Depth (mm)", "Median Mass (kg)"])
         writer.writerow(["", "", median_length, median_width, median_width, median_volume])
 
 
