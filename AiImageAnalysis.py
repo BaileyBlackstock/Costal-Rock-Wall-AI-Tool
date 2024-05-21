@@ -275,15 +275,12 @@ def get_settings():
     f = open("settings.txt", "r")
     line1 = f.readline().split()
     line2 = f.readline().split()
-    line3 = f.readline().split()
 
-    if line1[0] != "density:" or line2[0] != "rounding_factor:" or line3[0] != "rock_colours_per_images:":
+    if line1[0] != "density:" or line2[0] != "rounding_factor:":
         print("The settings file isn't formatted correctly.")
         return -1
 
-    returnVal = [float(line1[1]), float(line2[1]), []]
-    for x in line3[1:]:
-        returnVal[2].append(int(x))
+    returnVal = [float(line1[1]), float(line2[1])]
     return returnVal
 
 
@@ -300,7 +297,7 @@ def output_to_csv(data, output_file_path):
         for entry in data:
             image_path, id, length, width, depth, volume, _, _, _, _, _, _, _, _ = entry
             writer.writerow([os.path.basename(image_path), id, length, width, depth, volume])
-        writer.writerow(["", "", "Mean Length (mm)", "Mean Width (mm)", "Mean Depth (mm)", "Mean Volume (m3)"
+        writer.writerow(["", "", "Mean Length (mm)", "Mean Width (mm)", "Mean Depth (mm)", "Mean Mass (m3)"
                          ])
         image_path, _, _, _, _, _, mean_length, mean_width, mean_width, mean_volume, median_length, median_width, median_width, median_volume = \
         data[0]
@@ -308,7 +305,7 @@ def output_to_csv(data, output_file_path):
         writer.writerow(["", "", mean_length, mean_width, mean_width, mean_volume])
 
         writer.writerow(
-            ["", "", "Median Length (mm)", "Median Width (mm)", "Median Depth (mm)", "Median Volume (m3)"])
+            ["", "", "Median Length (mm)", "Median Width (mm)", "Median Depth (mm)", "Median Mass (m3)"])
         writer.writerow(["", "", median_length, median_width, median_width, median_volume])
 
 
@@ -334,6 +331,43 @@ def get_real_length(rock_sizes: list, hat_size: float, hat_diameter: float) -> l
     return real_sizes
 
 
+def get_cluster_count(image):
+    clusters = [[[255,255,255],0], [[0,0,0],0]]  # a list of colour cluster in the image
+
+    height, length, = len(image), len(image[0])
+    pixel_count = length * height
+    index = 0
+
+    # check 1000 equally spaced pixels and put them into clusters
+    while index < pixel_count:
+        x,y = index % height, index // height
+        pixel_colour = list(image[x][y].astype('int32'))
+
+        # check if the pixel colour
+        in_clusters = False
+        for j in range(len(clusters)):
+            passed = True
+            for i in range(3):
+                if abs((pixel_colour[i] - clusters[j][0][i])) > 10:
+                    passed = False
+            if passed:
+                clusters[j][1] += 1
+                in_clusters = True
+                break
+        if not in_clusters:
+            clusters.append([pixel_colour,1])
+
+        index += 100
+
+    # only count clusters that occur a lot and aren't white or black
+    count = 0
+    for cluster in clusters:
+        if cluster[0] == [255,255,255] or cluster[0] == [0,0,0] or cluster[1] < 100:
+            continue
+        count += 1
+    return count
+
+
 def main():
     # Define the parameters for the project
     image_directory = "AI Image Analysis Data"
@@ -345,15 +379,10 @@ def main():
     # Retrieve settings
     settings = get_settings()
     if settings == -1:
-        stall = input()
+        stall = input("hit enter to close.")
         return 1
     density = settings[0]
     reduction_factor = settings[1]
-
-    if len(image_paths) != len(settings[2]):
-        print("The number of rock colours listed doesn't match the input files count.")
-        stall = input()
-        return 1
 
     # List to store all measurements data
     measurements_data = []
@@ -364,7 +393,7 @@ def main():
     for imageNumber in range(len(image_paths)):
         image = cv2.imread(image_paths[imageNumber])
 
-        k = settings[2][imageNumber]  # number of rock colours
+        k = get_cluster_count(image)  # number of rock colours
 
         rockPixelSizes, referenceSize = get_rocks_pixel_sizes(image, k)
         real_sizes = get_real_length(rockPixelSizes, referenceSize, REAL_HAT_DIAMETER)
@@ -374,6 +403,9 @@ def main():
         rock_lengths.extend([row[0] for row in real_sizes])
         rock_widths.extend([row[1] for row in real_sizes])
         rock_masses.extend(masses)  # Collect all rock masses for grading curve
+
+        # give status report
+        print("Image " + image_paths[imageNumber][23:] + " scanned")
 
         # Generate data for CSV output
         for i, dimensions in enumerate(real_sizes):
@@ -400,6 +432,8 @@ def main():
     plot_grading_curve(rock_masses, show=True)
 
     print("Data processing complete. Results saved to:", output_file_path)
+
+    stall = input("hit enter to close.")
 
 
 if __name__ == "__main__":
