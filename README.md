@@ -10,7 +10,7 @@ This projects aim is to take a photo of rock armour with a hard hat in the pictu
 ## Instructions
 This program works by taking a silhouette of a rock wall with the rocks and reference image \(a standard sie hard hat) filled in and produces outputs in the forms of a csv file and graphs via the python matplotlib library. The first step for this program is to create the silhouette input image, make sure to do this using the following rules:
 * The hard hat must be ecoloured white and the only thing coloured white.
-* THe background must be black, ensure there is no rim of colour at the edges.
+* The background must be black, ensure there is no rim of colour at the edges.
 * The rocks must be moderately distinct colours, i.e. no two shades of red.
 * The rocks can be the same colour but must not touch.
 * Although not rules, it helps to only colour in rocks on a similar depth as the hard hat for the best results, and to only use 4 colours for the rocks \(you will never need more than this).
