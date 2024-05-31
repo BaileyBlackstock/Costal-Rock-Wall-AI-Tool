@@ -196,6 +196,7 @@ def get_rocks_pixel_sizes(image, colourCount):
     :param colourCount: the number of unique rock colours
     :return: a 2d list of rock pixel sizes
     """
+
     # colour segment the image to remove noise
     segmented_image, centers = segment_colors(image, colourCount + 2)
 
@@ -214,11 +215,18 @@ def get_rocks_pixel_sizes(image, colourCount):
         perp = find_perp_lines(contours, longs)
 
         if colour[0] > 235 and colour[1] > 235 and colour[2] > 235:
+            if len(longs) != 1:
+                print("Multiple reference objects found in image named ", end="")
+                return -1, -1
             referenceDiameter = dis(longs[0])
         else:
             for i in range(len(longs)):
                 newSize = [dis(longs[i]), dis(perp[i])]
                 rockSizes.append(newSize)
+
+    if referenceDiameter == 0:
+        print("No reference object found in image named ", end="")
+        return -1, -1
 
     return rockSizes, referenceDiameter
 
@@ -333,6 +341,8 @@ def get_real_length(rock_sizes: list, hat_size: float, hat_diameter: float) -> l
 def get_cluster_count(image):
     clusters = [[[255,255,255],0], [[0,0,0],0]]  # a list of colour cluster in the image
 
+    image = cv2.resize(image, (2000, 1480))
+
     height, length, = len(image), len(image[0])
     pixel_count = length * height
     index = 0
@@ -347,7 +357,7 @@ def get_cluster_count(image):
         for j in range(len(clusters)):
             passed = True
             for i in range(3):
-                if abs((pixel_colour[i] - clusters[j][0][i])) > 10:
+                if abs((pixel_colour[i] - clusters[j][0][i])) > 20:
                     passed = False
             if passed:
                 clusters[j][1] += 1
@@ -396,6 +406,14 @@ def main():
         k = get_cluster_count(image)  # number of rock colours
 
         rockPixelSizes, referenceSize = get_rocks_pixel_sizes(image, k)
+
+        if rockPixelSizes == -1:
+            print(image_paths[imageNumber])
+            continue
+        elif len(rockPixelSizes) == 0:
+            print("No rocks found in image named,", image_paths[imageNumber])
+            continue
+
         real_sizes = get_real_length(rockPixelSizes, referenceSize, reference_size)
         masses = calculate_masses(real_sizes, density, reduction_factor)
 
@@ -412,6 +430,11 @@ def main():
             width, Height = dimensions
             mass = masses[i]
             measurements_data.append([image_paths[imageNumber], i, width, Height, Height, mass])
+
+    if len(measurements_data) == 0:
+        print("No data to print to csv.")
+        stall = input("hit enter to close.")
+        return 0
 
     median_length = np.median(rock_lengths)
     median_width = np.median(rock_widths)
